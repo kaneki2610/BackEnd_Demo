@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121. 
+-->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <_PublishTargetUrl>D:\DemoWeb</_PublishTargetUrl>
+    <History>True|2022-01-20T07:35:03.6908189Z;True|2022-01-20T13:15:41.1940271+07:00;True|2022-01-20T11:22:19.0093629+07:00;True|2022-01-20T11:12:23.7480227+07:00;True|2022-01-20T10:49:20.1905683+07:00;True|2022-01-20T07:48:29.3168290+07:00;True|2022-01-19T10:04:18.8487386+07:00;True|2022-01-19T09:52:49.7970849+07:00;True|2022-01-19T09:50:35.3579571+07:00;</History>
+  </PropertyGroup>
+</Project>

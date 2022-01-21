@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121. 
+-->
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <_PublishTargetUrl>C:\inetpub\wwwroot\BackendSession2</_PublishTargetUrl>
+    <History>True|2022-01-19T02:47:30.6493074Z;True|2022-01-19T09:08:55.5211779+07:00;False|2022-01-19T09:03:05.2508821+07:00;</History>
+  </PropertyGroup>
+</Project>
