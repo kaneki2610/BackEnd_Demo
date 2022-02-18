@@ -9,6 +9,8 @@ using Couchbase;
 using Couchbase.N1QL;
 using Couchbase.Extensions.DependencyInjection;
 using Couchbase.Core;
+using StackExchange.Redis;
+using BackendSession2.Service;
 
 namespace BackendSession2.Repository
 {
@@ -17,11 +19,17 @@ namespace BackendSession2.Repository
         private readonly ILogger _logger;
         private readonly IBucket _bucket;
         private readonly string _bucketName = "AreaBucket";
+        private readonly ICacheService _cacheService;
+        private const string _province = "province";
+        private const string _district = "district";
+        private const string _areaKeyGetList = "areaKeyGetList";
+        private const string _areaPrefix = "area";
 
-        public AreaRepository(IBucketProvider bucketProvider, ILogger<AddressRepository> logger)
+        public AreaRepository(IBucketProvider bucketProvider, ILogger<AddressRepository> logger, ICacheService redis)
         {
             _bucket = bucketProvider.GetBucket(_bucketName);
             _logger = logger;
+            _cacheService = redis;
         }
 
         public async Task<AreaModel> insertArea(AreaModel model)
@@ -35,18 +43,60 @@ namespace BackendSession2.Repository
                 Id = key.ToString()
             };
             var result = await _bucket.InsertAsync(document);
+            await _cacheService.DeleteKeyWithByPrefix(_areaPrefix);
             return result.Success ? model : null;
         }
 
         public async Task<List<AreaModel>> getAreas(string type, string parentId)
         {
+            if(string.IsNullOrEmpty(parentId))
+            {
+                var _keyRedisProvince = _areaKeyGetList + "_" + type;
+                var _listRedisProvince = await _cacheService.GetCacheListAsync<AreaModel>(_keyRedisProvince);
+                if(_listRedisProvince != null)
+                {
+                    return _listRedisProvince;
+                } else
+                {
+                    List<AreaModel> result = await getListAll(type, parentId);
+                    if(result != null)
+                    {
+                        bool value = await _cacheService.SetCacheListAsync<AreaModel>(_keyRedisProvince, result);
+                        Console.WriteLine($"status save cache list province: " + value);
+                    }
+                    return result;
+                }
+            } else
+            {
+                var _keyRedisDistrictWard = _areaKeyGetList + "_" + type + "_" + parentId;
+                var _listRedis = await _cacheService.GetCacheListAsync<AreaModel>(_keyRedisDistrictWard);
+                if(_listRedis != null)
+                {
+                    return _listRedis;
+                } else
+                {
+                    List<AreaModel> result = await getListAll(type, parentId);
+                    if (result != null)
+                    {
+                        bool value = await _cacheService.SetCacheListAsync<AreaModel>(_keyRedisDistrictWard, result);
+                        Console.WriteLine($"status save cache: " + value);
+                    }
+                    return result;
+                }
+            }
+           
+        }
+
+        public async Task<List<AreaModel>> getListAll(string type, string parentId)
+        {
             var statement = $"SELECT area. * FROM {_bucketName} AS area "
-                            + $"WHERE type = $_type "
-                            + $"AND parentId = $_parentId";
+                           + $"WHERE type = $_type "
+                           + $"AND parentId = $_parentId";
             Console.WriteLine("hung: " + statement);
             var query = new QueryRequest(statement)
                         .AddNamedParameter("$_type", type)
-                        .AddNamedParameter("$_parentId", parentId);
+                        .AddNamedParameter("$_parentId", parentId)
+                        .ScanConsistency(ScanConsistency.RequestPlus);
             var result = await _bucket.QueryAsync<AreaModel>(query);
             return result.Rows;
         }
@@ -62,13 +112,14 @@ namespace BackendSession2.Repository
                 Id = area.Id.ToString()
             };
             var result = await _bucket.UpsertAsync(document);
+            await _cacheService.DeleteKeyWithByPrefix(_areaPrefix);
             return result.Success ? area : null;
         }
 
         public async Task<AreaModel> getAreaById(Guid id)
         {
             var statement = $"SELECT bucketname. * FROM {_bucketName} AS bucketname WHERE bucketname.id = $_id";
-            var query = new QueryRequest(statement).AddNamedParameter("_id", id);
+            var query = new QueryRequest(statement).AddNamedParameter("_id", id).ScanConsistency(ScanConsistency.RequestPlus);
             var result = await _bucket.QueryAsync<AreaModel>(query);
             return result.Rows.FirstOrDefault();
         }
@@ -77,7 +128,7 @@ namespace BackendSession2.Repository
         {
             var addressModel = await getAreaById(id);
             if (addressModel == null) return 0;
-            if (type == "province" || type == "district")
+            if (type == _province || type == _district)
             {
                 int deleteChild = await deleteById(code, type, id);
                 if(deleteChild == 0) return 0;
@@ -96,10 +147,10 @@ namespace BackendSession2.Repository
         public async Task<int> deleteById(string code, string type, Guid id)
         {
             var statement = "";
-            if(type == "province")
+            if(type == _province)
             {
                 statement = $"DELETE FROM {_bucketName} WHERE provinceId = $_code";
-            } else if(type == "district")
+            } else if(type == _district)
             {
                 statement = $"DELETE FROM {_bucketName} WHERE parentId = $_code";
             } else
@@ -108,7 +159,7 @@ namespace BackendSession2.Repository
             }
 
             var queryValue = new QueryRequest(statement);
-            if (type == "province" || type == "district")
+            if (type == _province || type == _district)
             {
                  queryValue.AddNamedParameter("_code", code);
             } else
@@ -116,6 +167,7 @@ namespace BackendSession2.Repository
                 queryValue.AddNamedParameter("_id", id);
             }
             var result = await _bucket.QueryAsync<dynamic>(queryValue);
+            await _cacheService.DeleteKeyWithByPrefix(_areaPrefix);
             return result.Success ? 1 : 0;
         }
     }

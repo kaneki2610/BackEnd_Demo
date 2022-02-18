@@ -1,8 +1,11 @@
 using BackendSession2.Core.Models;
 using BackendSession2.Core.Repositories;
+using BackendSession2.Service;
+using BackendSession2.Signalr;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Threading.Tasks;
@@ -13,6 +16,7 @@ namespace BackendSession2.Controllers
     [Route("api/[controller]")]
     public class AreaController : ControllerBase
     {
+        private IHubContext<SignalrHub, IHubClient> _signalrHub;
         private readonly IAreaRepository _areaRepository;
         private readonly ILogger _logger;
         private readonly int _success = 0;
@@ -20,10 +24,11 @@ namespace BackendSession2.Controllers
         private readonly string _msgError = "Some thing went wrong";
         private readonly string _msgSuccess = "SUCCESS";
 
-        public AreaController(IAreaRepository areaRepository, ILogger<AreaController> logger)
+        public AreaController(IAreaRepository areaRepository, ILogger<AreaController> logger, IHubContext<SignalrHub, IHubClient> signalrHub)
         {
             _areaRepository = areaRepository;
             _logger = logger;
+            _signalrHub = signalrHub;
         }
         //true: insert false: update
         public bool isValidData(AreaModel area, bool isInsertMethod)
@@ -50,6 +55,24 @@ namespace BackendSession2.Controllers
             return isValid;
         }
 
+        [Route("test")]
+        [HttpPost]
+        public async Task<string> PostMessage([FromBody] MessageInstance msg)
+        {
+            var retMessage = string.Empty;
+            try
+            {
+                msg.Timestamp = DateTime.UtcNow.ToString();
+                await _signalrHub.Clients.All.BroadcastMessage("test");
+                retMessage = "Success";
+            }
+            catch (Exception e)
+            {
+                retMessage = e.ToString();
+            }
+            return retMessage;
+        }
+
         [Route("createArea")]
         [HttpPost]
         public async Task<IActionResult> insertArea(AreaModel area)
@@ -74,7 +97,7 @@ namespace BackendSession2.Controllers
                         err = this._success,
                         data = model
                     };
-
+                    //await _signalrHub.Clients.All.BroadcastMessage("SignalR: Server Add: Them thanh cong");
                     return Ok(response);
                 }
             }
@@ -153,7 +176,7 @@ namespace BackendSession2.Controllers
                         err = this._success,
                         data = model
                     };
-
+                    //await _signalrHub.Clients.All.BroadcastMessage("SignalR: Server Update: Sua thanh cong");
                     return Ok(response);
                 }
             }
@@ -197,7 +220,7 @@ namespace BackendSession2.Controllers
                         err = this._success
                     };
                 }
-
+                //await _signalrHub.Clients.All.BroadcastMessage("SignalR: Server delete: Xoa thanh cong");
                 return Ok(response);
             }
             catch (Exception ex)
